@@ -147,4 +147,3 @@ async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Respons
     return { message: 'Bu faqat superadminlar uchun ma‘lumot.' };
   }
 }
-// hdhjjhs

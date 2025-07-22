@@ -1,7 +1,7 @@
 export default () => ({
   port: parseInt(process.env.PORT || '3000', 10), 
   database: {
-    uri: process.env.MONGO_URI || 'mongodb+srv://alimboyevjayxun007:7HxTSKwKqqtrzUJu@cluster0.xzgrmdm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
+    uri: process.env.MONGO_URI || 'mongodb+srv://sayilxonovfikrat0:V0hb9hNmHA4czpgq@cluster0.gpaow2z.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0',
   },
   jwt: {
     secret: process.env.JWT_SECRET || 'supersecretjwtkey',
