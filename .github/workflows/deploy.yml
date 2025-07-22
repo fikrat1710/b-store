@@ -1,0 +1,96 @@
+name: NestJS CI/CD
+
+on:
+  push:
+    branches:
+      - main # main branch'ga har qanday push qilinganda ishga tushadi
+
+env:
+  NODE_VERSION: '18' # Sizning Node.js versiyangiz. Loyihangiz 18 da ishlasa 18 qoldiring, 20 bo'lsa 20 ga o'zgartiring.
+  DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/nestjs-app
+  DOCKER_IMAGE_TAG: latest # Yoki xohlasangiz ${{ github.sha }} dan foydalanishingiz mumkin, bu har bir commit uchun noyob tag beradi.
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest # Ishni bajarish uchun operatsion tizim
+    environment: production # Atrof-muhitni belgilash (GitHub Secrets'dan foydalanish uchun)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm' # npm paketlarini keshlash, keyingi build'lar tezroq bo'ladi
+
+      - name: Install dependencies
+        run: npm ci # npm install o'rniga npm ci tavsiya etiladi CI uchun
+
+      - name: Build NestJS app
+        run: npm run build # Loyihani qurish (TypeScript'dan JS'ga o'girish)
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }} # DOCKER_HUB_PASSWORD o'rniga DOCKER_HUB_TOKEN foydalanilgan
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: . # Dockerfile joylashgan papka
+          push: true
+          tags: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_IMAGE_TAG }}
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3 # SSH orqali deploy qilish uchun action
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            set -e # Har qanday buyruq xatosi bo'lsa skriptni to'xtatish
+
+            echo "📁 Loyihani papkaga tayyorlash: ${{ secrets.APP_DIR }}"
+            # Agar papka mavjud bo'lmasa yaratish, mavjud bo'lsa hech narsa qilmaslik
+            mkdir -p ${{ secrets.APP_DIR }}
+            cd ${{ secrets.APP_DIR }}
+
+            echo "📥 Kodni yangilash..."
+            # Agar .git papkasi mavjud bo'lmasa (birinchi deploy), omborni klonlash
+            if [ ! -d ".git" ]; then
+              git clone https://github.com/${{ github.repository }} .
+            else
+              # Agar mavjud bo'lsa, faqatgina yangilanishlarni tortish
+              git pull origin main
+            fi
+
+            echo "📝 .env faylni yaratish..."
+            # GitHub Secrets'dan olingan o'zgaruvchilar bilan .env faylini to'ldirish
+            # PORT bu yerda ilova ichida ishlatadigan port (Dockerfile da EXPOSE qilingan port),
+            # tashqi port (4001) Docker Compose'da belgilanadi.
+            cat > .env <<'EOF'
+            PORT=3000 # Ilovangiz Docker konteyneri ichida ishlaydigan port
+            MONGO_URI=${{ secrets.MONGO_URI }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            MAIL_HOST=${{ secrets.MAIL_HOST }}
+            MAIL_PORT=${{ secrets.MAIL_PORT }}
+            MAIL_USER=${{ secrets.MAIL_USER }}
+            MAIL_PASS=${{ secrets.MAIL_PASS }}
+            MAIL_FROM=${{ secrets.MAIL_FROM }}
+            EOF
+
+            echo "📦 Docker image'ni yangilash..."
+            # Docker Hub'dan eng so'nggi tasvirni tortish
+            docker pull ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_IMAGE_TAG }} || true # Agar tasvir mavjud bo'lmasa xato bermaslik
+
+            echo "🚀 Docker Compose bilan ishga tushirish..."
+            # Eski konteynerni to'xtatish va o'chirish, so'ngra yangisini ishga tushirish
+            docker-compose down --remove-orphans || true # Agar konteyner yo'q bo'lsa xato bermaslik
+            docker-compose up -d --build # --build flag'i Dockerfile o'zgarganda qayta qurishni ta'minlaydi
+                                        # (lekin biz bu yerda tashqi image'dan foydalanyapmiz, shuning uchun bu unchalik muhim emas)
+
+            echo "✅ Deploy tugadi!"

@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  app:
+    image: sayilxonovfikrat/nestjs-app:latest # Bu yerda o'zingizning Docker Hub tasviringizni ko'rsating
+    restart: always # Konteyner to'xtab qolsa avtomatik qayta ishga tushirish
+    env_file:
+      - .env # .env faylidan atrof-muhit o'zgaruvchilarini yuklash
+    ports:
+      - "4001:3000" # Hostdagi 4001 portni konteynerdagi 3000 portga ulash
+                   # NestJS ilovasi odatda 3000 portda ishlaydi
+    volumes:
+      - ./data/uploads:/app/uploads # Fayllarni serverda saqlash uchun hajm (volume)
+                                   # Bu yo'l serverdagi APP_DIR ichida bo'lishi kerak
+                                   # Masalan, /var/www/nestjs-app/data/uploads
