@@ -3,17 +3,15 @@ name: NestJS CI/CD
 on:
   push:
     branches:
-      - main # main branch'ga har qanday push qilinganda ishga tushadi
-
+      - main
 env:
-  NODE_VERSION: '18' # Sizning Node.js versiyangiz. Loyihangiz 18 da ishlasa 18 qoldiring, 20 bo'lsa 20 ga o'zgartiring.
+  NODE_VERSION: '18' 
   DOCKER_IMAGE_NAME: ${{ secrets.DOCKER_HUB_USERNAME }}/nestjs-app
-  DOCKER_IMAGE_TAG: latest # Yoki xohlasangiz ${{ github.sha }} dan foydalanishingiz mumkin, bu har bir commit uchun noyob tag beradi.
-
+  DOCKER_IMAGE_TAG: latest
 jobs:
   build-and-deploy:
-    runs-on: ubuntu-latest # Ishni bajarish uchun operatsion tizim
-    environment: production # Atrof-muhitni belgilash (GitHub Secrets'dan foydalanish uchun)
+    runs-on: ubuntu-latest 
+    environment: production 
 
     steps:
       - name: Checkout code
@@ -23,29 +21,29 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm' # npm paketlarini keshlash, keyingi build'lar tezroq bo'ladi
+          cache: 'npm' 
 
       - name: Install dependencies
-        run: npm ci # npm install o'rniga npm ci tavsiya etiladi CI uchun
+        run: npm ci 
 
       - name: Build NestJS app
-        run: npm run build # Loyihani qurish (TypeScript'dan JS'ga o'girish)
+        run: npm run build 
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_TOKEN }} # DOCKER_HUB_PASSWORD o'rniga DOCKER_HUB_TOKEN foydalanilgan
+          password: ${{ secrets.DOCKER_HUB_TOKEN }} 
 
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
-          context: . # Dockerfile joylashgan papka
+          context: . 
           push: true
           tags: ${{ env.DOCKER_IMAGE_NAME }}:${{ env.DOCKER_IMAGE_TAG }}
 
       - name: Deploy to VPS via SSH
-        uses: appleboy/ssh-action@v1.0.3 # SSH orqali deploy qilish uchun action
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USER }}
